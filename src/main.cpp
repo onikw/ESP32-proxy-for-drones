@@ -3,6 +3,11 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 
+
+#include <HardwareSerial.h>
+#include <MAVLink.h>
+
+
 HardwareSerial mySerial(1);
 
 uint8_t system_id = 1;
@@ -82,6 +87,11 @@ server.on("/set-coordinates", HTTP_POST, []() {
       server.stop();
       WiFi.disconnect(true);
       Serial.println("Server stopped and Wi-Fi disconnected.");
+      dataReceived = true;
+
+      mySerial.begin(57600, SERIAL_8N1, 2, 3);
+      Serial.println("Połączono z FC przez port szeregowy z użyciem MAVLink");
+      
     } else {
       server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"No data received\"}");
     }
@@ -92,7 +102,7 @@ server.on("/set-coordinates", HTTP_POST, []() {
 }
 
 void loop() {
-  server.handleClient();
+    
+    server.handleClient();
 
-  // Możesz dodać tutaj dowolne inne operacje, które chcesz wykonać po odebraniu danych.
 }
