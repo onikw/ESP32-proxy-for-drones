@@ -10,13 +10,12 @@ uint8_t component_id = 200;   // ID komponentu (ground station)
 uint8_t target_system = 1;    // ID systemu docelowego (drona)
 uint8_t target_component = 1; // ID komponentu docelowego (autopilot)
 
-
-void sendMission() {
+void sendMission(float lat_wp, float lon_wp) {
   mavlink_message_t msg;
   uint8_t buf[MAVLINK_MAX_PACKET_LEN];
   
   // 1. Wysłanie wiadomości MISSION_COUNT z liczbą punktów w misji
-  uint16_t mission_count = 2; // Jeden punkt + lądowanie
+  uint16_t mission_count = 3; // Jeden punkt + delay + lądowanie
   mavlink_msg_mission_count_pack(system_id, component_id, &msg, target_system, target_component, mission_count, 0, 0);
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
   mySerial.write(buf, len);
@@ -24,18 +23,13 @@ void sendMission() {
 
   delay(1000); // Poczekaj chwilę, aby kontroler lotu przetworzył wiadomość
 
-  // 2. Wysłanie punktu nawigacyjnego (Waypoint)
-  float lat = 47.397742;  // Szerokość geograficzna celu (w stopniach)
-  float lon = 8.545594;   // Długość geograficzna celu (w stopniach)
-  float alt = 10.0;       // Wysokość celu (w metrach)
-
   mavlink_msg_mission_item_int_pack(
     system_id,                 // ID systemu
     component_id,              // ID komponentu
     &msg,                      // Wskaźnik na wiadomość mavlink
     target_system,             // ID systemu docelowego (dron)
     target_component,          // ID komponentu docelowego (autopilot)
-    0,                         // Seq - numer sekwencji punktu misji
+    0,                         // Seq - numer sekwencji punktu misji (0 dla pierwszego punktu)
     MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, // Frame - współrzędne globalne z relatywną wysokością
     MAV_CMD_NAV_WAYPOINT,      // Command - komenda nawigacji do punktu
     0,                         // Current - 0: nie aktywne, 1: aktywny punkt misji
@@ -44,25 +38,51 @@ void sendMission() {
     0.0,                       // Param2 - np. czas oczekiwania (można ustawić na 0)
     0.0,                       // Param3 - np. promień przejścia (można ustawić na 0)
     0.0,                       // Param4 - kierunek (można ustawić na 0)
-    lat * 1e7,                 // X (szerokość geograficzna * 1e7)
-    lon * 1e7,                 // Y (długość geograficzna * 1e7)
-    alt * 1000,                // Z (wysokość w mm)
+    lat_wp * 1e7,              // X (szerokość geograficzna * 1e7)
+    lon_wp * 1e7,              // Y (długość geograficzna * 1e7)
+    10,             // Z (wysokość w mm)
     MAV_MISSION_TYPE_MISSION   // Typ misji
   );
   len = mavlink_msg_to_send_buffer(buf, &msg);
   mySerial.write(buf, len);
-  Serial.println("WAYPOINT wysłano");
+  Serial.println("WAYPOINT wysłano - Park Jordana");
 
   delay(1000);
 
-  // 3. Wysłanie komendy lądowania
+  // 3. Wysłanie komendy opóźnienia (Delay) na 5 minut
   mavlink_msg_mission_item_int_pack(
     system_id,                 // ID systemu
     component_id,              // ID komponentu
     &msg,                      // Wskaźnik na wiadomość mavlink
     target_system,             // ID systemu docelowego (dron)
     target_component,          // ID komponentu docelowego (autopilot)
-    1,                         // Seq - numer sekwencji punktu misji
+    1,                         // Seq - numer sekwencji punktu misji (1 dla opóźnienia)
+    MAV_FRAME_MISSION,         // Frame - misja
+    MAV_CMD_NAV_DELAY,         // Command - komenda opóźnienia
+    0,                         // Current - 0: nie aktywne, 1: aktywny punkt misji
+    1,                         // Autocontinue - 1: kontynuacja automatyczna, 0: nie
+    300.0,                     // Param1 - czas opóźnienia w sekundach (5 minut)
+    0.0,                       // Param2 (niezdefiniowane dla opóźnienia)
+    0.0,                       // Param3 (niezdefiniowane dla opóźnienia)
+    0.0,                       // Param4 (niezdefiniowane dla opóźnienia)
+    0,                         // X (nieużywane)
+    0,                         // Y (nieużywane)
+    0,                         // Z (nieużywane)
+    MAV_MISSION_TYPE_MISSION   // Typ misji
+  );
+  len = mavlink_msg_to_send_buffer(buf, &msg);
+  mySerial.write(buf, len);
+  Serial.println("DELAY wysłano - 5 minut");
+
+  delay(1000);
+
+  mavlink_msg_mission_item_int_pack(
+    system_id,                 // ID systemu
+    component_id,              // ID komponentu
+    &msg,                      // Wskaźnik na wiadomość mavlink
+    target_system,             // ID systemu docelowego (dron)
+    target_component,          // ID komponentu docelowego (autopilot)
+    2,                         // Seq - numer sekwencji punktu misji (2 dla lądowania)
     MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, // Frame - współrzędne globalne z relatywną wysokością
     MAV_CMD_NAV_LAND,          // Command - komenda lądowania
     0,                         // Current - 0: nie aktywne, 1: aktywny punkt misji
@@ -70,18 +90,19 @@ void sendMission() {
     0.0,                       // Param1 (niezdefiniowane dla lądowania)
     0.0,                       // Param2 (niezdefiniowane dla lądowania)
     0.0,                       // Param3 (niezdefiniowane dla lądowania)
-    0.0,                       // Param4 - kierunek podejścia (można ustawić na 0)
-    lat * 1e7,                 // X (szerokość geograficzna * 1e7)
-    lon * 1e7,                 // Y (długość geograficzna * 1e7)
-    0,                         // Z (wysokość w mm, 0 dla lądowania)
+    0.0,                       // Param4 - kierunek podejścia (można ustawić na 0))
+    lat_wp * 1e7,              // X (szerokość geograficzna * 1e7)
+    lon_wp * 1e7,              // Y (długość geograficzna * 1e7)
+    0,                  // Z (wysokość w mm, 0 dla lądowania)
     MAV_MISSION_TYPE_MISSION   // Typ misji
   );
   len = mavlink_msg_to_send_buffer(buf, &msg);
   mySerial.write(buf, len);
-  Serial.println("LAND wysłano");
+  Serial.println("LAND wysłano - inna lokalizacja");
 
   delay(1000);
 }
+
 
 
 void setup() {
@@ -110,6 +131,34 @@ void loop() {
       // Przykład: Jeśli wiadomość to HEARTBEAT
       if (msg.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
         Serial.println("HEARTBEAT odebrany");
+      }
+      
+      // Sprawdzanie statusu baterii
+      if (msg.msgid == MAVLINK_MSG_ID_BATTERY_STATUS) {
+        mavlink_battery_status_t battery;
+        mavlink_msg_battery_status_decode(&msg, &battery);
+        Serial.print("Bateria: ");
+        Serial.print(battery.voltages[0] / 1000.0);
+        Serial.println(" V");
+      }
+
+      // Sprawdzanie statusu GPS
+      if (msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
+        mavlink_gps_raw_int_t gps;
+        mavlink_msg_gps_raw_int_decode(&msg, &gps);
+        Serial.print("GPS Fix: ");
+        Serial.print(gps.fix_type);
+        Serial.print(", Satelity: ");
+        Serial.println(gps.satellites_visible);
+      }
+
+      // Sprawdzanie statusu RC
+      if (msg.msgid == MAVLINK_MSG_ID_RC_CHANNELS) {
+        mavlink_rc_channels_t rc;
+        mavlink_msg_rc_channels_decode(&msg, &rc);
+        Serial.print("RC Link: ");
+        Serial.print(rc.rssi);
+        Serial.println(" RSSI");
       }
     }
   }
