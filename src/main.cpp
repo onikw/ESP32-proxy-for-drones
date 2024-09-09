@@ -104,5 +104,12 @@ server.on("/set-coordinates", HTTP_POST, []() {
 void loop() {
     
     server.handleClient();
-
+    if (dataReceived) {
+        Serial.print("Longitude: ");
+        Serial.println(longitude);
+        Serial.print("Latitude: ");
+        Serial.println(latitude);
+        Serial.print("Altitude: ");
+        Serial.println(altitude);
+    }
 }
