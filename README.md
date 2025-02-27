@@ -1,4 +1,3 @@
-
-test app
-
-curl -X POST http://192.168.18.90/set-coordinates -H "Content-Type: application/json" -d '{"long":19.921969,"lat":50.066468,"altitude":100.0}'
+##  
+This is a software for ESP32 working as a proxy.
+It is able to block and replace a communication between ELRS receiver and FC with Ardupilot software or just pass it down to FC.
